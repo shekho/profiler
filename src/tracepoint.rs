@@ -115,7 +115,10 @@ pub fn read_tracepoint_file(file_path: &str) -> Result<TracepointStats> {
                 Ok(info) => info,
                 Err(e) => {
                     if sample_count <= 5 {
-                        println!("  Sample event #{} - error getting info: {}", sample_count, e);
+                        println!(
+                            "  Sample event #{} - error getting info: {}",
+                            sample_count, e
+                        );
                     }
                     continue;
                 }
@@ -123,7 +126,11 @@ pub fn read_tracepoint_file(file_path: &str) -> Result<TracepointStats> {
 
             // Print first few sample events
             if sample_count <= 5 {
-                println!("  Sample event #{}: {}", sample_count, sample_event_info.name());
+                println!(
+                    "  Sample event #{}: {}",
+                    sample_count,
+                    sample_event_info.name()
+                );
 
                 // Try to decode using EventHeader
                 if let Ok(mut enumerator) = enumerator_ctx.enumerate(&sample_event_info) {
