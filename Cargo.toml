@@ -1,0 +1,19 @@
+[package]
+name = "profiler"
+version = "0.1.0"
+edition = "2021"
+description = "A basic Rust-based profiler that listens to perf_events and tracepoints"
+license = "MIT"
+
+[dependencies]
+# Microsoft's LinuxTracepoints-Rust crates for tracepoint handling
+tracepoint_perf = "0.5.0"
+tracepoint_decode = "0.5.0"
+
+# perf-event crate for live perf event monitoring
+perf-event = "0.4.8"
+
+# CLI and error handling
+clap = { version = "4.5.0", features = ["derive"] }
+anyhow = "1.0.0"
+thiserror = "2.0.0"
