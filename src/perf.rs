@@ -99,19 +99,19 @@ impl ProfilingResult {
 /// # Arguments
 ///
 /// * `duration_secs` - Duration in seconds to collect performance data
-/// * `pid` - Target process ID (0 for current process)
+/// * `_pid` - Target process ID (currently unused, always profiles current process)
 ///
 /// # Returns
 ///
 /// Returns a `ProfilingResult` containing the collected performance counters.
-pub fn run_perf_profiler(duration_secs: u64, pid: i32) -> Result<ProfilingResult> {
+///
+/// # Note
+///
+/// Currently only profiles the current process. PID targeting is not yet implemented.
+pub fn run_perf_profiler(duration_secs: u64, _pid: i32) -> Result<ProfilingResult> {
     println!("Starting perf profiler...");
     println!("Duration: {} seconds", duration_secs);
-    if pid == 0 {
-        println!("Target: Current process");
-    } else {
-        println!("Target: PID {}", pid);
-    }
+    println!("Target: Current process (PID targeting not yet implemented)");
     println!();
 
     // Create a group to collect multiple counters atomically

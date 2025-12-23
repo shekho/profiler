@@ -26,7 +26,7 @@ enum Commands {
         #[arg(short, long, default_value = "5")]
         duration: u64,
 
-        /// Target PID to profile (0 for current process)
+        /// Target PID to profile (currently only profiles current process, PID targeting not yet implemented)
         #[arg(short, long, default_value = "0")]
         pid: i32,
     },
