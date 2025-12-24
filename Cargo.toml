@@ -10,6 +10,9 @@ license = "MIT"
 tracepoint_perf = "0.5.0"
 tracepoint_decode = "0.5.0"
 
+# Microsoft's one-collect for perf event profiling with callchain support
+one_collect = { git = "https://github.com/microsoft/one-collect", branch = "main" }
+
 # perf-event crate for live perf event monitoring
 perf-event = "0.4.8"
 

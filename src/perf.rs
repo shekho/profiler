@@ -1,11 +1,15 @@
 //! Perf event profiling module.
 //!
 //! This module provides functionality to collect hardware performance counter data
-//! using the Linux perf_event subsystem.
+//! using the Linux perf_event subsystem, as well as CPU profiling with callchain/stacktrace
+//! support using microsoft/one-collect.
 
 use anyhow::{Context, Result};
+use one_collect::perf_event::{RingBufBuilder, RingBufOptions, RingBufSessionBuilder};
 use perf_event::events::Hardware;
 use perf_event::{Builder, Group};
+use std::cell::Cell;
+use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 
@@ -173,6 +177,115 @@ pub fn run_perf_profiler(duration_secs: u64, _pid: i32) -> Result<ProfilingResul
     println!("{:-<50}", "");
     println!("  IPC:               {:>15.3}", result.ipc());
     println!("  Cache Miss Rate:   {:>14.2}%", result.cache_miss_rate());
+    println!("{:=<50}", "");
+
+    Ok(result)
+}
+
+/// Results from a CPU profiling session with callchain/stacktrace data.
+#[derive(Debug, Default)]
+pub struct CallchainProfilingResult {
+    /// Total number of samples collected
+    pub sample_count: u64,
+    /// Duration of the profiling session in seconds
+    pub duration_secs: u64,
+    /// Sampling frequency used (Hz)
+    pub sampling_frequency: u64,
+}
+
+/// Run CPU profiler with callchain/stacktrace collection using microsoft/one-collect.
+///
+/// This function collects CPU profiling samples with full callchain (stack trace) data
+/// using the perf_event subsystem via the one_collect crate.
+///
+/// # Arguments
+///
+/// * `duration_secs` - Duration in seconds to collect profiling data
+/// * `pid` - Target process ID (-1 for all processes, 0 for current process)
+/// * `sampling_frequency` - Sampling frequency in Hz (e.g., 99 for 99 samples/second)
+///
+/// # Returns
+///
+/// Returns a `CallchainProfilingResult` containing the profiling statistics.
+///
+/// # Example
+///
+/// ```no_run
+/// use profiler::perf::run_callchain_profiler;
+///
+/// // Profile for 5 seconds at 99 Hz
+/// let result = run_callchain_profiler(5, 0, 99).unwrap();
+/// println!("Collected {} samples", result.sample_count);
+/// ```
+pub fn run_callchain_profiler(
+    duration_secs: u64,
+    pid: i32,
+    sampling_frequency: u64,
+) -> Result<CallchainProfilingResult> {
+    println!("Starting callchain profiler with one_collect...");
+    println!("Duration: {} seconds", duration_secs);
+    println!("Sampling frequency: {} Hz", sampling_frequency);
+    println!("Target PID: {}", if pid == -1 { "all".to_string() } else if pid == 0 { "current".to_string() } else { pid.to_string() });
+    println!();
+
+    // Create a profiling builder with callchain support
+    let profiling_builder = RingBufBuilder::for_profiling(sampling_frequency)
+        .with_callchain_data()
+        .with_ip();
+
+    // Build the session
+    let mut session_builder = RingBufSessionBuilder::new()
+        .with_page_count(64) // 64 pages for ring buffer
+        .with_profiling_events(profiling_builder);
+
+    // Add target PID if specified (not -1 for all)
+    if pid >= 0 {
+        session_builder = session_builder.with_target_pid(pid);
+    }
+
+    let mut session = session_builder
+        .build()
+        .context("Failed to build perf session")?;
+
+    // Set up sample counter using Rc<Cell> for interior mutability in callback
+    let sample_count = Rc::new(Cell::new(0u64));
+    let sample_count_clone = sample_count.clone();
+
+    // Add callback to the CPU profile event to count samples
+    session.cpu_profile_event().add_callback(move |_event_data| {
+        sample_count_clone.set(sample_count_clone.get() + 1);
+        Ok(())
+    });
+
+    // Enable the session and collect data
+    println!("Collecting callchain profiling data...");
+    session.enable().context("Failed to enable perf session")?;
+
+    // Parse events for the specified duration
+    let duration = Duration::from_secs(duration_secs);
+    session
+        .parse_for_duration(duration)
+        .context("Failed to parse perf events")?;
+
+    session.disable().context("Failed to disable perf session")?;
+
+    let result = CallchainProfilingResult {
+        sample_count: sample_count.get(),
+        duration_secs,
+        sampling_frequency,
+    };
+
+    // Print results
+    println!();
+    println!("Callchain Profiling Results:");
+    println!("{:=<50}", "");
+    println!("  Samples Collected: {:>15}", result.sample_count);
+    println!("  Duration:          {:>12} s", result.duration_secs);
+    println!("  Sampling Freq:     {:>12} Hz", result.sampling_frequency);
+    println!(
+        "  Effective Rate:    {:>12.1} samples/s",
+        result.sample_count as f64 / result.duration_secs as f64
+    );
     println!("{:=<50}", "");
 
     Ok(result)
